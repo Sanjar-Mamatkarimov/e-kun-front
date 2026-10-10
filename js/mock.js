@@ -77,6 +77,7 @@
 
   const DEMO_JOURNAL_KEY = 'ek_demo_journal_v1';
   const DEMO_SCHEDULE_KEY = 'ek_demo_schedule_v1';
+  const DEMO_STUDENT_EDITS_KEY = 'ek_demo_student_edits_v1';
 
   function readDemoList(key, fallback) {
     const stored = localStorage.getItem(key);
@@ -97,6 +98,11 @@
 
   state.journal = readDemoList(DEMO_JOURNAL_KEY, state.journal);
   state.schedule = readDemoList(DEMO_SCHEDULE_KEY, state.schedule);
+  let studentEdits = readDemoList(DEMO_STUDENT_EDITS_KEY, []);
+  state.students.forEach((student) => {
+    const saved = studentEdits.find((item) => item.id === student.id);
+    if (saved) Object.assign(student, saved);
+  });
   state._seq.journal = Math.max(state._seq.journal, ...state.journal.map((item) => Number(item.id) || 0));
   state._seq.schedule = Math.max(state._seq.schedule, ...state.schedule.map((item) => Number(item.id) || 0));
 
@@ -250,6 +256,39 @@
     }
     if ((m = /^\/api\/students\/(\d+)\/$/.exec(pathname))) {
       const id = Number(m[1]);
+      const student = state.students.find((item) => item.id === id);
+      if (!student) return fail('Ученик не найден', 404);
+      if (M === 'PATCH') {
+        if (user.role !== 'TEACHER' || student.teacher_id !== user.id) return fail('Недостаточно прав', 403);
+        const fullName = get(body, 'full_name');
+        const className = get(body, 'class_name');
+        const birthDate = get(body, 'birth_date');
+        const subjects = get(body, 'subjects');
+        if (fullName !== undefined) {
+          if (!String(fullName).trim()) return fail('Укажите ФИО ученика.', 400);
+        }
+        let updatedSubjects;
+        if (subjects !== undefined) {
+          updatedSubjects = Array.isArray(subjects)
+            ? Array.from(new Set(subjects.map((subject) => String(subject).trim()).filter(Boolean)))
+            : [];
+          if (!updatedSubjects.length) return fail('Выберите хотя бы один предмет.', 400);
+        }
+        if (fullName !== undefined) student.full_name = String(fullName).trim();
+        if (className !== undefined) student.class_name = String(className).trim();
+        if (birthDate !== undefined) student.birth_date = String(birthDate).trim();
+        if (updatedSubjects) student.subjects = updatedSubjects;
+        const edit = {
+          id: student.id,
+          full_name: student.full_name,
+          class_name: student.class_name,
+          birth_date: student.birth_date,
+          subjects: student.subjects,
+        };
+        studentEdits = studentEdits.filter((item) => item.id !== student.id).concat(edit);
+        saveDemoList(DEMO_STUDENT_EDITS_KEY, studentEdits);
+        return delay(student);
+      }
       if (M === 'DELETE') {
         state.students = state.students.filter((s) => s.id !== id);
         // чистим связанные данные ученика: журнал, репертуар, ДЗ, расписание
@@ -261,7 +300,7 @@
         saveDemoList(DEMO_SCHEDULE_KEY, state.schedule);
         return delay({ ok: true });
       }
-      if (M === 'GET') return delay(state.students.find((s) => s.id === id));
+      if (M === 'GET') return delay(student);
     }
 
     // ---- Events ----

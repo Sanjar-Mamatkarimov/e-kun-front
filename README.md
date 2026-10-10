@@ -86,6 +86,7 @@ python -m http.server 8123
 | Метод | Путь | Поля |
 |-------|------|------|
 | GET/POST | `/api/teacher/students/` | `full_name, class_name, subjects[], login, password` |
+| PATCH | `/api/students/{id}/` | Учитель редактирует своего ученика: `full_name, class_name, birth_date, subjects[]` |
 | GET | `/api/teacher/student-statistics/` | показатели закреплённых учеников: `student_id, full_name, class_name, average, grades_count, absences, lessons_count` |
 | GET/POST | `/api/teacher/schedule/` | список занятий преподавателя / `student_id, subject, day, time, room, kind` |
 | DELETE | `/api/teacher/schedule/{id}/` | удалить своё занятие |

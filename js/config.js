@@ -42,7 +42,7 @@ App.CONFIG = {
     teachers: '/api/teachers/',         // GET / POST
     teacher: (id) => `/api/teachers/${id}/`, // DELETE
     students: '/api/students/',         // GET (?class=) / POST
-    student: (id) => `/api/students/${id}/`, // GET / DELETE
+    student: (id) => `/api/students/${id}/`, // GET / PATCH / DELETE
     events: '/api/events/',             // GET / POST
     event: (id) => `/api/events/${id}/`,
 
