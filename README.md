@@ -92,6 +92,7 @@ python -m http.server 8123
 | DELETE | `/api/teacher/schedule/{id}/` | удалить своё занятие |
 | GET  | `/api/subjects/` | список предметов `[{name}]` |
 | GET/POST | `/api/journal/` | GET `?subject=&student=`; POST `student_id, subject, date, attendance, grade, comment` |
+| GET/POST | `/api/teacher/quarter-grades/` | GET filters `subject, school_year, quarter`; POST `student_id, subject, school_year, quarter, start_date, end_date, grade` |
 | GET/POST | `/api/repertoire/` | `student_id, title, composer, subject, status` |
 | PATCH | `/api/repertoire/{id}/` | `status` (В работе / Готово к зачету / Сдано) |
 | GET/POST | `/api/homework/` | POST multipart (`file` + поля) |
@@ -101,6 +102,7 @@ python -m http.server 8123
 |-------|------|----------------|
 | GET | `/api/student/dashboard/` | средний балл, счётчики, `recent[]`, `events[]` |
 | GET | `/api/student/grades/` | оценки по предметам `[{subject, records[]}]` |
+| GET | `/api/student/quarter-grades/` | сохранённые четвертные оценки `student_id, subject, school_year, quarter, start_date, end_date, grade` |
 | GET | `/api/student/repertoire/` | репертуар ученика |
 | GET | `/api/student/homework/` | задания + `file_url` |
 | GET | `/api/student/schedule/` | `day, time, subject, teacher, room, kind` |
@@ -135,6 +137,7 @@ python -m http.server 8123
 │   ├── dashboard.html    # главная + афиша
 │   ├── students.html     # мои ученики + создание (генерация пароля) и удаление
 │   ├── journal.html      # журнал: посещаемость Б/Н·Б, оценки 1–5, комментарий
+│   ├── quarter-grades.html # рекомендация по среднему за период и сохранение оценки учителем
 │   ├── schedule.html     # составление и удаление расписания учеников
 │   ├── repertoire.html   # репертуарный план (статусы: В работе/Готово/Сдано)
 │   └── homework.html     # ДЗ с прикреплением файлов + история отправлений
@@ -142,6 +145,7 @@ python -m http.server 8123
 └── student/              # панель ученика
     ├── dashboard.html    # баннер-афиша, счётчики, последние оценки
     ├── diary.html        # дневник по предметам (оценки, пропуски, комментарии)
+    ├── quarter-grades.html # четвертные оценки, выставленные учителем
     ├── repertoire.html   # мой репертуар со статусами
     ├── homework.html     # материалы и задания со скачиванием файлов
     └── schedule.html     # расписание по дням недели
@@ -171,7 +175,8 @@ python -m http.server 8123
 
 ## 🧪 Известные особенности демо-режима
 
-- Данные живут в памяти браузера текущей вкладки (сброс при перезагрузке).
+- Журнал, расписание, изменения учеников и четвертные оценки сохраняются в
+  `localStorage` браузера.
 - Файлы в домашних заданиях подставляются заглушкой (`file_url: '#'`).
 - В реальном режиме файл в `POST /api/homework/` уходит как `multipart/form-data`.
 - Логин/пароль ученика можно сгенерировать кнопкой в модалке «Создать ученика»

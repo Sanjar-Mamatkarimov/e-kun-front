@@ -54,10 +54,14 @@ App.CONFIG = {
     subjects: '/api/subjects/',             // GET список предметов
     journal: '/api/journal/',               // GET (?subject=&student=) / POST
     journalItem: (id) => `/api/journal/${id}/`,
+    quarterGrades: '/api/teacher/quarter-grades/', // GET / POST suggested quarter grades
     repertoire: '/api/repertoire/',         // GET (?student=) / POST / PATCH
     repertoireItem: (id) => `/api/repertoire/${id}/`,
     homework: '/api/homework/',             // GET / POST (multipart, файл)
     homeworkItem: (id) => `/api/homework/${id}/`,
+
+    // --- Student ---
+    studentQuarterGrades: '/api/student/quarter-grades/', // GET saved grades for current student
   },
 
   SUBJECTS: [

@@ -72,12 +72,15 @@
       { id: 5, student_id: 3, teacher_id: 6, subject: 'Муз. литература', teacher: 'Г. Ахметова', day: 'Пятница',    time: '14:00', room: 'Каб. 8',  kind: 'групповое' },
     ],
 
-    _seq: { teachers: 100, students: 100, events: 100, journal: 100, repertoire: 100, homework: 100, schedule: 100 },
+    quarterGrades: [],
+
+    _seq: { teachers: 100, students: 100, events: 100, journal: 100, repertoire: 100, homework: 100, schedule: 100, quarterGrades: 100 },
   };
 
   const DEMO_JOURNAL_KEY = 'ek_demo_journal_v1';
   const DEMO_SCHEDULE_KEY = 'ek_demo_schedule_v1';
   const DEMO_STUDENT_EDITS_KEY = 'ek_demo_student_edits_v1';
+  const DEMO_QUARTER_GRADES_KEY = 'ek_demo_quarter_grades_v1';
 
   function readDemoList(key, fallback) {
     const stored = localStorage.getItem(key);
@@ -96,8 +99,15 @@
     localStorage.setItem(key, JSON.stringify(items));
   }
 
+  function isValidISODate(value) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const date = new Date(value + 'T00:00:00Z');
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+  }
+
   state.journal = readDemoList(DEMO_JOURNAL_KEY, state.journal);
   state.schedule = readDemoList(DEMO_SCHEDULE_KEY, state.schedule);
+  state.quarterGrades = readDemoList(DEMO_QUARTER_GRADES_KEY, state.quarterGrades);
   let studentEdits = readDemoList(DEMO_STUDENT_EDITS_KEY, []);
   state.students.forEach((student) => {
     const saved = studentEdits.find((item) => item.id === student.id);
@@ -105,6 +115,7 @@
   });
   state._seq.journal = Math.max(state._seq.journal, ...state.journal.map((item) => Number(item.id) || 0));
   state._seq.schedule = Math.max(state._seq.schedule, ...state.schedule.map((item) => Number(item.id) || 0));
+  state._seq.quarterGrades = Math.max(state._seq.quarterGrades, ...state.quarterGrades.map((item) => Number(item.id) || 0));
 
   /* ------------------------- вспомогательные ------------------------- */
   const nextId = (key) => ++state._seq[key];
@@ -296,8 +307,10 @@
         state.repertoire = state.repertoire.filter((r) => r.student_id !== id);
         state.homework = state.homework.filter((hw) => hw.student_id !== id);
         state.schedule = state.schedule.filter((sc) => sc.student_id !== id);
+        state.quarterGrades = state.quarterGrades.filter((grade) => grade.student_id !== id);
         saveDemoList(DEMO_JOURNAL_KEY, state.journal);
         saveDemoList(DEMO_SCHEDULE_KEY, state.schedule);
+        saveDemoList(DEMO_QUARTER_GRADES_KEY, state.quarterGrades);
         return delay({ ok: true });
       }
       if (M === 'GET') return delay(student);
@@ -381,6 +394,58 @@
         const updated = state.journal.concat(item);
         saveDemoList(DEMO_JOURNAL_KEY, updated);
         state.journal = updated;
+        return delay(item);
+      }
+    }
+
+    // ---- Teacher: quarter grades ----
+    if (pathname === App.CONFIG.ENDPOINTS.quarterGrades) {
+      if (user.role !== 'TEACHER') return fail('Недостаточно прав', 403);
+      if (M === 'GET') {
+        let list = state.quarterGrades.filter((grade) => grade.teacher_id === user.id);
+        ['student', 'subject', 'school_year', 'quarter'].forEach((key) => {
+          if (qs[key]) list = list.filter((grade) => String(grade[key === 'student' ? 'student_id' : key]) === qs[key]);
+        });
+        return delay(list);
+      }
+      if (M === 'POST') {
+        const studentId = Number(get(body, 'student_id'));
+        const student = state.students.find((item) => item.id === studentId && item.teacher_id === user.id);
+        const subject = String(get(body, 'subject') || '').trim();
+        const schoolYear = String(get(body, 'school_year') || '').trim();
+        const quarter = Number(get(body, 'quarter'));
+        const startDate = String(get(body, 'start_date') || '');
+        const endDate = String(get(body, 'end_date') || '');
+        const gradeValue = Number(get(body, 'grade'));
+        if (!student) return fail('Ученик не найден или не закреплён за вами.', 403);
+        if (!(student.subjects || []).includes(subject)) return fail('У ученика нет выбранного предмета.', 400);
+        if (!schoolYear || ![1, 2, 3, 4].includes(quarter)) return fail('Укажите учебный год и четверть.', 400);
+        if (!isValidISODate(startDate) || !isValidISODate(endDate) || startDate > endDate) {
+          return fail('Укажите корректные даты четверти.', 400);
+        }
+        if (!Number.isInteger(gradeValue) || gradeValue < 1 || gradeValue > 5) return fail('Оценка должна быть от 1 до 5.', 400);
+        const existing = state.quarterGrades.find((item) =>
+          item.teacher_id === user.id &&
+          item.student_id === studentId &&
+          item.subject === subject &&
+          item.school_year === schoolYear &&
+          item.quarter === quarter);
+        const item = {
+          id: existing ? existing.id : nextId('quarterGrades'),
+          student_id: studentId,
+          student_name: student.full_name,
+          teacher_id: user.id,
+          subject,
+          school_year: schoolYear,
+          quarter,
+          start_date: startDate,
+          end_date: endDate,
+          grade: gradeValue,
+        };
+        state.quarterGrades = existing
+          ? state.quarterGrades.map((saved) => saved.id === existing.id ? item : saved)
+          : state.quarterGrades.concat(item);
+        saveDemoList(DEMO_QUARTER_GRADES_KEY, state.quarterGrades);
         return delay(item);
       }
     }
@@ -532,6 +597,9 @@
         subject: s.subject,
         records: s.records.sort((a, b) => (a.date < b.date ? 1 : -1)),
       })));
+    }
+    if (M === 'GET' && pathname === App.CONFIG.ENDPOINTS.studentQuarterGrades) {
+      return delay(state.quarterGrades.filter((grade) => grade.student_id === user.id));
     }
     if (M === 'GET' && pathname === '/api/student/repertoire/') {
       return delay(state.repertoire.filter((r) => r.student_id === user.id));

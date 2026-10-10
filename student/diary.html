@@ -16,6 +16,7 @@
       <nav class="sidebar__nav">
         <a class="nav-item" href="dashboard.html"><span class="nav-item__icon">🏠</span><span>Главная</span></a>
         <a class="nav-item" href="diary.html"><span class="nav-item__icon">📖</span><span>Электронный дневник</span></a>
+        <a class="nav-item" href="quarter-grades.html"><span class="nav-item__icon">🏅</span><span>Четвертные оценки</span></a>
         <a class="nav-item" href="repertoire.html"><span class="nav-item__icon">🎼</span><span>Мой репертуар</span></a>
         <a class="nav-item" href="homework.html"><span class="nav-item__icon">📁</span><span>Материалы и задания</span></a>
         <a class="nav-item" href="schedule.html"><span class="nav-item__icon">🗓️</span><span>Расписание</span></a>
@@ -65,9 +66,16 @@
 
       var panels = document.getElementById('subject-panels');
 
-      App.shell.loadInto(panels, () => App.api.get('/api/student/grades/'), function (subjects) {
-        if (!subjects.length) return App.ui.emptyState('Оценок пока нет.');
-        return subjects.map(function (s) {
+      App.shell.loadInto(panels, () => Promise.all([
+        App.api.get('/api/student/grades/'),
+        App.api.get(App.CONFIG.ENDPOINTS.studentQuarterGrades),
+      ]), function (results) {
+        var subjects = results[0] || [];
+        var quarterGrades = results[1] || [];
+        var content = [];
+        if (quarterGrades.length) content.push(quarterGradesPanel(quarterGrades));
+        if (!subjects.length && !quarterGrades.length) return App.ui.emptyState('Оценок пока нет.');
+        content = content.concat(subjects.map(function (s) {
           var grades = s.records.filter((r) => r.grade != null).map((r) => r.grade);
           var avg = grades.length ? Math.round((grades.reduce((a, b) => a + b, 0) / grades.length) * 10) / 10 : '—';
           var absences = s.records.filter((r) => r.attendance === 'Н/Б').length;
@@ -78,8 +86,31 @@
                 App.ui.h('span', { class: 'chip' }, 'Средний: ' + avg),
                 App.ui.h('span', { class: 'chip chip--warn' }, 'Пропусков: ' + absences))),
             recentTable(s.records));
-        });
+        }));
+        return content;
       });
+
+      function quarterGradesPanel(grades) {
+        return App.ui.h('div', { class: 'panel' },
+          App.ui.h('div', { class: 'panel__head' },
+            App.ui.h('h3', null, 'Четвертные оценки')),
+          App.ui.h('div', { class: 'table-wrap' },
+            App.ui.h('table', { class: 'table' },
+              App.ui.h('thead', null, App.ui.h('tr', null,
+                App.ui.h('th', null, 'Учебный год'), App.ui.h('th', null, 'Четверть'),
+                App.ui.h('th', null, 'Предмет'), App.ui.h('th', null, 'Период'),
+                App.ui.h('th', null, 'Оценка'))),
+              App.ui.h('tbody', null, grades.slice().sort(function (a, b) {
+                return b.school_year.localeCompare(a.school_year) || b.quarter - a.quarter;
+              }).map(function (grade) {
+                return App.ui.h('tr', null,
+                  App.ui.h('td', null, grade.school_year),
+                  App.ui.h('td', null, 'Четверть ' + grade.quarter),
+                  App.ui.h('td', null, grade.subject),
+                  App.ui.h('td', null, App.ui.formatDate(grade.start_date) + ' — ' + App.ui.formatDate(grade.end_date)),
+                  App.ui.h('td', null, App.ui.gradeBadge(grade.grade)));
+              })))));
+      }
 
       function recentTable(records) {
         return App.ui.h('div', { class: 'table-wrap' },
