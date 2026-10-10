@@ -73,7 +73,8 @@ python -m http.server 8123
 ### Директор
 | Метод | Путь | Поля |
 |-------|------|------|
-| GET  | `/api/director/stats/` | `teachers, students, events, upcoming_events[]` |
+| GET  | `/api/director/stats/` | `teachers, students, events, upcoming_events[], average, grades_count, absences, lessons_count, attendance_rate` |
+| GET | `/api/director/student-statistics/` | показатели каждого ученика: `student_id, full_name, class_name, average, grades_count, absences, lessons_count` |
 | GET/POST | `/api/teachers/` | `full_name, subject, phone, login, password` |
 | DELETE | `/api/teachers/{id}/` | удаление преподавателя (его ученики освобождаются) |
 | GET/POST | `/api/students/`  | `full_name, class_name, subjects[], login, …` (GET + `?class=` фильтр) |
@@ -85,6 +86,9 @@ python -m http.server 8123
 | Метод | Путь | Поля |
 |-------|------|------|
 | GET/POST | `/api/teacher/students/` | `full_name, class_name, subjects[], login, password` |
+| GET | `/api/teacher/student-statistics/` | показатели закреплённых учеников: `student_id, full_name, class_name, average, grades_count, absences, lessons_count` |
+| GET/POST | `/api/teacher/schedule/` | список занятий преподавателя / `student_id, subject, day, time, room, kind` |
+| DELETE | `/api/teacher/schedule/{id}/` | удалить своё занятие |
 | GET  | `/api/subjects/` | список предметов `[{name}]` |
 | GET/POST | `/api/journal/` | GET `?subject=&student=`; POST `student_id, subject, date, attendance, grade, comment` |
 | GET/POST | `/api/repertoire/` | `student_id, title, composer, subject, status` |
@@ -130,6 +134,7 @@ python -m http.server 8123
 │   ├── dashboard.html    # главная + афиша
 │   ├── students.html     # мои ученики + создание (генерация пароля) и удаление
 │   ├── journal.html      # журнал: посещаемость Б/Н·Б, оценки 1–5, комментарий
+│   ├── schedule.html     # составление и удаление расписания учеников
 │   ├── repertoire.html   # репертуарный план (статусы: В работе/Готово/Сдано)
 │   └── homework.html     # ДЗ с прикреплением файлов + история отправлений
 │

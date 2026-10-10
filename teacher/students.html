@@ -17,6 +17,7 @@
         <a class="nav-item" href="dashboard.html"><span class="nav-item__icon">🎫</span><span>Главная и афиша</span></a>
         <a class="nav-item" href="students.html"><span class="nav-item__icon">🎓</span><span>Мои ученики</span></a>
         <a class="nav-item" href="journal.html"><span class="nav-item__icon">📓</span><span>Журнал и оценки</span></a>
+        <a class="nav-item" href="schedule.html"><span class="nav-item__icon">🗓️</span><span>Расписание занятий</span></a>
         <a class="nav-item" href="repertoire.html"><span class="nav-item__icon">🎼</span><span>Репертуарный план</span></a>
         <a class="nav-item" href="homework.html"><span class="nav-item__icon">📎</span><span>Домашние задания</span></a>
       </nav>
@@ -52,7 +53,7 @@
           <div class="table-wrap">
             <table class="table">
               <thead>
-                <tr><th>ФИО</th><th>Класс</th><th>Предметы</th><th>Логин</th><th></th></tr>
+                <tr><th>ФИО</th><th>Класс</th><th>Предметы</th><th>Средний балл</th><th>Оценок</th><th>Пропусков</th><th>Логин</th><th></th></tr>
               </thead>
               <tbody id="students-body"></tbody>
             </table>
@@ -133,6 +134,7 @@
       var modal = document.getElementById('modal-student');
       var form = document.getElementById('student-form');
       var errorBox = document.getElementById('student-error');
+      var statisticsByStudent = {};
 
       function openModal() { modal.classList.remove('modal-hidden'); modal.classList.add('is-open'); errorBox.style.display = 'none'; }
       function closeModal() { modal.classList.add('modal-hidden'); modal.classList.remove('is-open'); }
@@ -185,7 +187,15 @@
       function showError(msg) { errorBox.textContent = msg; errorBox.style.display = ''; }
 
       function load() {
-        App.shell.loadInto(tbody, () => App.api.get(App.CONFIG.ENDPOINTS.myStudents), (list) => {
+        App.shell.loadInto(tbody, async function () {
+          var results = await Promise.all([
+            App.api.get(App.CONFIG.ENDPOINTS.myStudents),
+            App.api.get(App.CONFIG.ENDPOINTS.teacherStudentStats),
+          ]);
+          statisticsByStudent = {};
+          (results[1] || []).forEach(function (stats) { statisticsByStudent[stats.student_id] = stats; });
+          return results[0] || [];
+        }, (list) => {
           empty.style.display = list.length ? 'none' : '';
           if (!list.length) return null;
           return list.map(function (s) {
@@ -193,6 +203,9 @@
               App.ui.h('td', null, App.ui.h('strong', null, s.full_name)),
               App.ui.h('td', null, App.ui.h('span', { class: 'pill' }, s.class_name || '—')),
               App.ui.h('td', null, App.ui.h('div', { class: 'tags' }, (s.subjects || []).map((sub) => App.ui.h('span', { class: 'tag' }, sub)))),
+              App.ui.h('td', null, statisticsByStudent[s.id] && statisticsByStudent[s.id].average != null ? statisticsByStudent[s.id].average : '—'),
+              App.ui.h('td', null, statisticsByStudent[s.id] ? statisticsByStudent[s.id].grades_count : '—'),
+              App.ui.h('td', null, statisticsByStudent[s.id] ? statisticsByStudent[s.id].absences : '—'),
               App.ui.h('td', null, s.login || '—'),
               App.ui.h('td', { class: 'col-actions' },
                 App.ui.h('button', { class: 'btn btn--danger btn--sm', type: 'button', 'aria-label': 'Удалить' }, 'Удалить')));

@@ -41,7 +41,7 @@
       <main class="content">
         <section class="welcome">
           <h2>Обзор школы</h2>
-          <p class="muted">Количество учителей, учеников и список актуальных объявлений школы.</p>
+          <p class="muted">Сводные показатели успеваемости, посещаемости и событий по всей школе.</p>
         </section>
 
         <div class="stat-grid">
@@ -60,6 +60,16 @@
             <div class="stat-card__value" id="stat-events">—</div>
             <div class="stat-card__label">Мероприятий</div>
           </a>
+          <div class="stat-card">
+            <div class="stat-card__icon">⭐</div>
+            <div class="stat-card__value" id="stat-average">—</div>
+            <div class="stat-card__label">Средний балл по школе</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card__icon">✅</div>
+            <div class="stat-card__value" id="stat-attendance">—</div>
+            <div class="stat-card__label">Посещаемость занятий</div>
+          </div>
         </div>
 
         <div class="panel">
@@ -91,6 +101,8 @@
           document.getElementById('stat-teachers').textContent = data.teachers || 0;
           document.getElementById('stat-students').textContent = data.students || 0;
           document.getElementById('stat-events').textContent = data.events || 0;
+          document.getElementById('stat-average').textContent = data.average == null ? '—' : data.average;
+          document.getElementById('stat-attendance').textContent = data.attendance_rate == null ? '—' : data.attendance_rate + '%';
           const events = data.upcoming_events || [];
           if (!events.length) return App.ui.emptyState('Пока нет запланированных мероприятий.');
           return document.createDocumentFragment ? renderList(events) : null;

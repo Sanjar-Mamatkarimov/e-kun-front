@@ -17,6 +17,7 @@
         <a class="nav-item" href="dashboard.html"><span class="nav-item__icon">🎫</span><span>Главная и афиша</span></a>
         <a class="nav-item" href="students.html"><span class="nav-item__icon">🎓</span><span>Мои ученики</span></a>
         <a class="nav-item" href="journal.html"><span class="nav-item__icon">📓</span><span>Журнал и оценки</span></a>
+        <a class="nav-item" href="schedule.html"><span class="nav-item__icon">🗓️</span><span>Расписание занятий</span></a>
         <a class="nav-item" href="repertoire.html"><span class="nav-item__icon">🎼</span><span>Репертуарный план</span></a>
         <a class="nav-item" href="homework.html"><span class="nav-item__icon">📎</span><span>Домашние задания</span></a>
       </nav>
@@ -42,7 +43,7 @@
       <main class="content">
         <section class="welcome">
           <h2>Здравствуйте!</h2>
-          <p class="muted">Афиша концертов и расписание, опубликованные администрацией школы.</p>
+          <p class="muted">Статистика учеников, расписание занятий и афиша школы.</p>
         </section>
 
         <div class="stat-grid">
@@ -55,6 +56,16 @@
             <div class="stat-card__icon">🎫</div>
             <div class="stat-card__value" id="stat-events">—</div>
             <div class="stat-card__label">Мероприятий</div>
+          </a>
+          <a class="stat-card" href="students.html">
+            <div class="stat-card__icon">⭐</div>
+            <div class="stat-card__value" id="stat-average">—</div>
+            <div class="stat-card__label">Средний балл учеников</div>
+          </a>
+          <a class="stat-card" href="schedule.html">
+            <div class="stat-card__icon">🗓️</div>
+            <div class="stat-card__value" id="stat-schedule">—</div>
+            <div class="stat-card__label">Занятий в расписании</div>
           </a>
         </div>
 
@@ -78,11 +89,23 @@
       if (!App.shell.guard(['TEACHER'])) return;
       App.shell.init({ title: 'Главная и афиша', subtitle: 'Концерты и уведомления' });
 
-      Promise.all([App.api.get(App.CONFIG.ENDPOINTS.myStudents), App.api.get(App.CONFIG.ENDPOINTS.events)])
+      Promise.all([
+        App.api.get(App.CONFIG.ENDPOINTS.myStudents),
+        App.api.get(App.CONFIG.ENDPOINTS.events),
+        App.api.get(App.CONFIG.ENDPOINTS.teacherStudentStats),
+        App.api.get(App.CONFIG.ENDPOINTS.teacherSchedule),
+      ])
         .then(function (results) {
           var students = results[0] || [], events = results[1] || [];
+          var studentStats = results[2] || [], lessons = results[3] || [];
           document.getElementById('stat-students').textContent = students.length;
           document.getElementById('stat-events').textContent = events.length;
+          var gradedStudents = studentStats.filter(function (student) { return student.average != null; });
+          var average = gradedStudents.length
+            ? gradedStudents.reduce(function (sum, student) { return sum + Number(student.average); }, 0) / gradedStudents.length
+            : null;
+          document.getElementById('stat-average').textContent = average == null ? '—' : Math.round(average * 10) / 10;
+          document.getElementById('stat-schedule').textContent = lessons.length;
           var listEl = document.getElementById('event-list');
           if (!events.length) { App.ui.mount(listEl, App.ui.emptyState('Пока нет анонсов.')); return; }
           App.ui.mount(listEl, events.slice(0, 4).map(function (ev) { return App.shell.eventCard(ev); }));

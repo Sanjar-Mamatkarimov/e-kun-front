@@ -65,15 +65,40 @@
     ],
 
     schedule: [
-      { id: 1, student_id: 3, subject: 'Специальность', teacher: 'Д. Ким',       day: 'Понедельник', time: '15:00', room: 'Каб. 5',  kind: 'индивидуальное' },
-      { id: 2, student_id: 3, subject: 'Сольфеджио',    teacher: 'М. Орлова',    day: 'Вторник',     time: '16:30', room: 'Каб. 12', kind: 'групповое' },
-      { id: 3, student_id: 3, subject: 'Хор',           teacher: 'С. Волков',    day: 'Среда',       time: '17:00', room: 'Актовый зал', kind: 'групповое' },
-      { id: 4, student_id: 3, subject: 'Специальность', teacher: 'Д. Ким',       day: 'Четверг',     time: '15:00', room: 'Каб. 5',  kind: 'индивидуальное' },
-      { id: 5, student_id: 3, subject: 'Муз. литература', teacher: 'Г. Ахметова', day: 'Пятница',    time: '14:00', room: 'Каб. 8',  kind: 'групповое' },
+      { id: 1, student_id: 3, teacher_id: 2, subject: 'Специальность', teacher: 'Д. Ким',       day: 'Понедельник', time: '15:00', room: 'Каб. 5',  kind: 'индивидуальное' },
+      { id: 2, student_id: 3, teacher_id: 4, subject: 'Сольфеджио',    teacher: 'М. Орлова',    day: 'Вторник',     time: '16:30', room: 'Каб. 12', kind: 'групповое' },
+      { id: 3, student_id: 3, teacher_id: 5, subject: 'Хор',           teacher: 'С. Волков',    day: 'Среда',       time: '17:00', room: 'Актовый зал', kind: 'групповое' },
+      { id: 4, student_id: 3, teacher_id: 2, subject: 'Специальность', teacher: 'Д. Ким',       day: 'Четверг',     time: '15:00', room: 'Каб. 5',  kind: 'индивидуальное' },
+      { id: 5, student_id: 3, teacher_id: 6, subject: 'Муз. литература', teacher: 'Г. Ахметова', day: 'Пятница',    time: '14:00', room: 'Каб. 8',  kind: 'групповое' },
     ],
 
-    _seq: { teachers: 100, students: 100, events: 100, journal: 100, repertoire: 100, homework: 100 },
+    _seq: { teachers: 100, students: 100, events: 100, journal: 100, repertoire: 100, homework: 100, schedule: 100 },
   };
+
+  const DEMO_JOURNAL_KEY = 'ek_demo_journal_v1';
+  const DEMO_SCHEDULE_KEY = 'ek_demo_schedule_v1';
+
+  function readDemoList(key, fallback) {
+    const stored = localStorage.getItem(key);
+    if (!stored) return fallback;
+    try {
+      const value = JSON.parse(stored);
+      if (Array.isArray(value)) return value;
+      console.error('Некорректные демо-данные в хранилище: ' + key);
+    } catch (error) {
+      console.error('Не удалось прочитать демо-данные ' + key, error);
+    }
+    return fallback;
+  }
+
+  function saveDemoList(key, items) {
+    localStorage.setItem(key, JSON.stringify(items));
+  }
+
+  state.journal = readDemoList(DEMO_JOURNAL_KEY, state.journal);
+  state.schedule = readDemoList(DEMO_SCHEDULE_KEY, state.schedule);
+  state._seq.journal = Math.max(state._seq.journal, ...state.journal.map((item) => Number(item.id) || 0));
+  state._seq.schedule = Math.max(state._seq.schedule, ...state.schedule.map((item) => Number(item.id) || 0));
 
   /* ------------------------- вспомогательные ------------------------- */
   const nextId = (key) => ++state._seq[key];
@@ -99,6 +124,33 @@
     err.status = status;
     return Promise.reject(err);
   };
+
+  function studentStatistics(student) {
+    const records = state.journal.filter((entry) => entry.student_id === student.id);
+    const grades = records.filter((entry) => entry.grade != null).map((entry) => Number(entry.grade));
+    return {
+      student_id: student.id,
+      full_name: student.full_name,
+      class_name: student.class_name,
+      average: grades.length ? Math.round((grades.reduce((sum, grade) => sum + grade, 0) / grades.length) * 10) / 10 : null,
+      grades_count: grades.length,
+      absences: records.filter((entry) => entry.attendance === 'Н/Б').length,
+      lessons_count: records.length,
+    };
+  }
+
+  function schoolStatistics() {
+    const records = state.journal;
+    const grades = records.filter((entry) => entry.grade != null).map((entry) => Number(entry.grade));
+    const attended = records.filter((entry) => entry.attendance === 'Б').length;
+    return {
+      average: grades.length ? Math.round((grades.reduce((sum, grade) => sum + grade, 0) / grades.length) * 10) / 10 : null,
+      grades_count: grades.length,
+      absences: records.filter((entry) => entry.attendance === 'Н/Б').length,
+      lessons_count: records.length,
+      attendance_rate: records.length ? Math.round((attended / records.length) * 100) : null,
+    };
+  }
 
   /* ----------------------------- маршруты ----------------------------- */
   function handle(method, path, payload) {
@@ -132,12 +184,18 @@
 
     // ---- Director: статистика ----
     if (M === 'GET' && pathname === App.CONFIG.ENDPOINTS.stats) {
+      if (user.role !== 'DIRECTOR') return fail('Недостаточно прав', 403);
       return delay({
         teachers: state.teachers.length,
         students: state.students.length,
         events: state.events.length,
+        ...schoolStatistics(),
         upcoming_events: state.events.slice(0, 3),
       });
+    }
+    if (M === 'GET' && pathname === App.CONFIG.ENDPOINTS.directorStudentStats) {
+      if (user.role !== 'DIRECTOR') return fail('Недостаточно прав', 403);
+      return delay(state.students.map(studentStatistics));
     }
 
     // ---- Teachers ----
@@ -199,6 +257,8 @@
         state.repertoire = state.repertoire.filter((r) => r.student_id !== id);
         state.homework = state.homework.filter((hw) => hw.student_id !== id);
         state.schedule = state.schedule.filter((sc) => sc.student_id !== id);
+        saveDemoList(DEMO_JOURNAL_KEY, state.journal);
+        saveDemoList(DEMO_SCHEDULE_KEY, state.schedule);
         return delay({ ok: true });
       }
       if (M === 'GET') return delay(state.students.find((s) => s.id === id));
@@ -255,6 +315,10 @@
         return delay(item);
       }
     }
+    if (M === 'GET' && pathname === App.CONFIG.ENDPOINTS.teacherStudentStats) {
+      if (user.role !== 'TEACHER') return fail('Недостаточно прав', 403);
+      return delay(state.students.filter((student) => student.teacher_id === user.id).map(studentStatistics));
+    }
 
     // ---- Journal ----
     if (pathname === App.CONFIG.ENDPOINTS.journal) {
@@ -275,7 +339,9 @@
           grade: get(body, 'grade') ? Number(get(body, 'grade')) : null,
           comment: get(body, 'comment') || '',
         };
-        state.journal.push(item);
+        const updated = state.journal.concat(item);
+        saveDemoList(DEMO_JOURNAL_KEY, updated);
+        state.journal = updated;
         return delay(item);
       }
     }
@@ -341,6 +407,55 @@
         };
         state.homework.push(item);
         return delay(item);
+      }
+    }
+
+    // ---- Teacher schedule management ----
+    if (pathname === App.CONFIG.ENDPOINTS.teacherSchedule) {
+      if (user.role !== 'TEACHER') return fail('Недостаточно прав', 403);
+      if (M === 'GET') {
+        const studentsById = new Map(state.students.map((student) => [student.id, student]));
+        const order = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+        return delay(state.schedule.filter((lesson) => lesson.teacher_id === user.id)
+          .map((lesson) => Object.assign({}, lesson, {
+            student_name: (studentsById.get(lesson.student_id) || {}).full_name || 'Ученик',
+          }))
+          .sort((a, b) => order.indexOf(a.day) - order.indexOf(b.day) || a.time.localeCompare(b.time)));
+      }
+      if (M === 'POST') {
+        const studentId = Number(get(body, 'student_id'));
+        const student = state.students.find((item) => item.id === studentId && item.teacher_id === user.id);
+        if (!student) return fail('Выберите своего ученика.', 400);
+        const day = get(body, 'day');
+        const time = get(body, 'time');
+        if (!day || !time || !get(body, 'subject')) return fail('Укажите день, время и предмет.', 400);
+        const lesson = {
+          id: nextId('schedule'),
+          student_id: student.id,
+          student_name: student.full_name,
+          teacher_id: user.id,
+          teacher: user.full_name,
+          subject: get(body, 'subject'),
+          day,
+          time,
+          room: get(body, 'room') || '—',
+          kind: get(body, 'kind') || 'индивидуальное',
+        };
+        const updated = state.schedule.concat(lesson);
+        saveDemoList(DEMO_SCHEDULE_KEY, updated);
+        state.schedule = updated;
+        return delay(lesson);
+      }
+    }
+    if ((m = /^\/api\/teacher\/schedule\/(\d+)\/$/.exec(pathname))) {
+      if (user.role !== 'TEACHER') return fail('Недостаточно прав', 403);
+      const lesson = state.schedule.find((item) => item.id === Number(m[1]) && item.teacher_id === user.id);
+      if (!lesson) return fail('Занятие не найдено', 404);
+      if (M === 'DELETE') {
+        const updated = state.schedule.filter((item) => item.id !== lesson.id);
+        saveDemoList(DEMO_SCHEDULE_KEY, updated);
+        state.schedule = updated;
+        return delay({ ok: true });
       }
     }
 

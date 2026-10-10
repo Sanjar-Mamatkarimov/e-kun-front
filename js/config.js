@@ -38,6 +38,7 @@ App.CONFIG = {
 
     // --- Director ---
     stats: '/api/director/stats/',      // GET {teachers, students, events}
+    directorStudentStats: '/api/director/student-statistics/', // GET school-wide per-student performance
     teachers: '/api/teachers/',         // GET / POST
     teacher: (id) => `/api/teachers/${id}/`, // DELETE
     students: '/api/students/',         // GET (?class=) / POST
@@ -47,6 +48,9 @@ App.CONFIG = {
 
     // --- Teacher ---
     myStudents: '/api/teacher/students/',   // GET (ученики учителя) / POST (создать)
+    teacherStudentStats: '/api/teacher/student-statistics/', // GET per-student performance for assigned students
+    teacherSchedule: '/api/teacher/schedule/', // GET / POST lessons assigned to students
+    teacherScheduleItem: (id) => `/api/teacher/schedule/${id}/`, // DELETE
     subjects: '/api/subjects/',             // GET список предметов
     journal: '/api/journal/',               // GET (?subject=&student=) / POST
     journalItem: (id) => `/api/journal/${id}/`,
