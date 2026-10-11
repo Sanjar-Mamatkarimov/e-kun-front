@@ -34,27 +34,27 @@ App.CONFIG = {
     // --- Auth (djangorestframework-simplejwt) ---
     login: '/api/auth/login/',          // POST {username, password} -> {access, refresh, user}
     refresh: '/api/auth/refresh/',      // POST {refresh} -> {access}
-    me: '/api/auth/me/',                // GET  current user {id, username, role, full_name}
+    me: '/api/auth/me/',                // GET  current user {id, username, role, full_name, subject?} (subject — предмет учителя)
 
-    // --- Director ---
+    // --- Director (создаёт учётные записи учителей и учеников) ---
     stats: '/api/director/stats/',      // GET {teachers, students, events}
     directorStudentStats: '/api/director/student-statistics/', // GET school-wide per-student performance
-    teachers: '/api/teachers/',         // GET / POST
-    teacher: (id) => `/api/teachers/${id}/`, // DELETE
-    students: '/api/students/',         // GET (?class=) / POST
-    student: (id) => `/api/students/${id}/`, // GET / PATCH / DELETE
+    teachers: '/api/teachers/',         // GET / POST (создание только директором: full_name, subject, phone, login, password)
+    teacher: (id) => `/api/teachers/${id}/`, // DELETE (только директор)
+    students: '/api/students/',         // GET (?class=) / POST (только директор: + teacher_ids[] — ученика можно закрепить за несколькими преподавателями)
+    student: (id) => `/api/students/${id}/`, // GET / PATCH (директор: + teacher_ids[]) / DELETE (только директор)
     events: '/api/events/',             // GET / POST
     event: (id) => `/api/events/${id}/`,
 
     // --- Teacher ---
-    myStudents: '/api/teacher/students/',   // GET (ученики учителя) / POST (создать)
+    myStudents: '/api/teacher/students/',   // GET (ученики, закреплённые директором)
     teacherStudentStats: '/api/teacher/student-statistics/', // GET per-student performance for assigned students
     teacherSchedule: '/api/teacher/schedule/', // GET / POST lessons assigned to students
     teacherScheduleItem: (id) => `/api/teacher/schedule/${id}/`, // DELETE
     subjects: '/api/subjects/',             // GET список предметов
-    journal: '/api/journal/',               // GET (?subject=&student=) / POST
+    journal: '/api/journal/',               // GET (?subject=&student=) / POST (учитель — только свои ученики и свой предмет)
     journalItem: (id) => `/api/journal/${id}/`,
-    quarterGrades: '/api/teacher/quarter-grades/', // GET / POST suggested quarter grades
+    quarterGrades: '/api/teacher/quarter-grades/', // GET / POST (учитель — только свои ученики и свой предмет)
     repertoire: '/api/repertoire/',         // GET (?student=) / POST / PATCH
     repertoireItem: (id) => `/api/repertoire/${id}/`,
     homework: '/api/homework/',             // GET / POST (multipart, файл)

@@ -68,16 +68,20 @@ python -m http.server 8123
 |-------|------|------------|
 | POST | `/api/auth/login/` | логин/пароль → JWT + роль |
 | POST | `/api/auth/refresh/` | продлить access-токен |
-| GET  | `/api/auth/me/` | текущий пользователь |
+| GET  | `/api/auth/me/` | текущий пользователь (`subject` — предмет учителя, назначенный директором) |
 
 ### Директор
+> **Единственная роль, которая создаёт пользователей.** Директор создаёт
+> учётные записи преподавателей и учеников и закрепляет ученика за одним или
+> несколькими преподавателями (к которым ученик ходит на занятия).
 | Метод | Путь | Поля |
 |-------|------|------|
 | GET  | `/api/director/stats/` | `teachers, students, events, upcoming_events[], average, grades_count, absences, lessons_count, attendance_rate` |
 | GET | `/api/director/student-statistics/` | показатели каждого ученика: `student_id, full_name, class_name, average, grades_count, absences, lessons_count` |
-| GET/POST | `/api/teachers/` | `full_name, subject, phone, login, password` |
-| DELETE | `/api/teachers/{id}/` | удаление преподавателя (его ученики освобождаются) |
-| GET/POST | `/api/students/`  | `full_name, class_name, subjects[], login, …` (GET + `?class=` фильтр) |
+| GET/POST | `/api/teachers/` | `full_name, subject, phone, login, password` (POST — создание учётной записи преподавателя) |
+| DELETE | `/api/teachers/{id}/` | удаление преподавателя (он снимается с учеников, ученики остаются у других преподавателей) |
+| GET/POST | `/api/students/`  | `full_name, class_name, subjects[], login, password, teacher_ids[]` — создание ученика и закрепление за одним или несколькими преподавателями (GET + `?class=` фильтр) |
+| PATCH | `/api/students/{id}/` | директор редактирует данные ученика и массив `teacher_ids[]` (закрепление за несколькими преподавателями) |
 | DELETE | `/api/students/{id}/` | удаление ученика (журнал, репертуар, ДЗ, расписание — тоже) |
 | GET/POST | `/api/events/` | `title, place, date, time, description` |
 | DELETE | `/api/events/{id}/` | |
@@ -85,14 +89,14 @@ python -m http.server 8123
 ### Учитель
 | Метод | Путь | Поля |
 |-------|------|------|
-| GET/POST | `/api/teacher/students/` | `full_name, class_name, subjects[], login, password` |
-| PATCH | `/api/students/{id}/` | Учитель редактирует своего ученика: `full_name, class_name, birth_date, subjects[]` |
+| GET | `/api/teacher/students/` | ученики, закреплённые за учителем директором, — учитель видит и ведёт только их (создание недоступно) |
+| PATCH | `/api/students/{id}/` | Учитель редактирует своего ученика: `full_name, class_name, birth_date, subjects[]` (только если ученик закреплён за ним) |
 | GET | `/api/teacher/student-statistics/` | показатели закреплённых учеников: `student_id, full_name, class_name, average, grades_count, absences, lessons_count` |
 | GET/POST | `/api/teacher/schedule/` | список занятий преподавателя / `student_id, subject, day, time, room, kind` |
 | DELETE | `/api/teacher/schedule/{id}/` | удалить своё занятие |
 | GET  | `/api/subjects/` | список предметов `[{name}]` |
-| GET/POST | `/api/journal/` | GET `?subject=&student=`; POST `student_id, subject, date, attendance, grade, comment` |
-| GET/POST | `/api/teacher/quarter-grades/` | GET filters `subject, school_year, quarter`; POST `student_id, subject, school_year, quarter, start_date, end_date, grade` |
+| GET/POST | `/api/journal/` | GET `?subject=&student=`; POST `student_id, subject, date, attendance, grade, comment`. `subject` — предмет учителя (назначен директором), не выбирается учителем |
+| GET/POST | `/api/teacher/quarter-grades/` | GET filters `subject, school_year, quarter`; POST `student_id, subject, school_year, quarter, start_date, end_date, grade`. `subject` — предмет учителя |
 | GET/POST | `/api/repertoire/` | `student_id, title, composer, subject, status` |
 | PATCH | `/api/repertoire/{id}/` | `status` (В работе / Готово к зачету / Сдано) |
 | GET/POST | `/api/homework/` | POST multipart (`file` + поля) |
@@ -129,13 +133,13 @@ python -m http.server 8123
 │
 ├── director/             # панель директора
 │   ├── dashboard.html    # обзор: счётчики + ближайшие анонсы
-│   ├── teachers.html     # преподаватели (+ создание и удаление)
-│   ├── students.html     # реестр учеников с фильтром по классам (+ удаление)
+│   ├── teachers.html     # преподаватели: создание, удаление и назначение учеников
+│   ├── students.html     # реестр учеников: создание и закрепление за преподавателем
 │   └── events.html       # концерты и анонсы (создание/удаление)
 │
 ├── teacher/              # панель преподавателя
 │   ├── dashboard.html    # главная + афиша
-│   ├── students.html     # мои ученики + создание (генерация пароля) и удаление
+│   ├── students.html     # мои ученики (закреплены директором) + редактирование данных
 │   ├── journal.html      # журнал: посещаемость Б/Н·Б, оценки 1–5, комментарий
 │   ├── quarter-grades.html # рекомендация по среднему за период и сохранение оценки учителем
 │   ├── schedule.html     # составление и удаление расписания учеников
@@ -179,5 +183,6 @@ python -m http.server 8123
   `localStorage` браузера.
 - Файлы в домашних заданиях подставляются заглушкой (`file_url: '#'`).
 - В реальном режиме файл в `POST /api/homework/` уходит как `multipart/form-data`.
-- Логин/пароль ученика можно сгенерировать кнопкой в модалке «Создать ученика»
-  (например: `aliya82 / e4q7vz`).
+- Логин/пароль ученика или преподавателя можно сгенерировать/задать при создании
+  в панели директора (например: `aliya82 / e4q7vz`). Созданные директором
+  пользователи сразу могут войти в систему.

@@ -33,7 +33,7 @@
         <button class="topbar__menu" id="menu-btn" aria-label="Меню">☰</button>
         <div class="topbar__titles">
           <h1 class="topbar__title">Преподаватели</h1>
-          <p class="topbar__subtitle">Управление учётными записями педагогов</p>
+          <p class="topbar__subtitle">Учётные записи педагогов и их ученики</p>
         </div>
         <div class="topbar__right"><span class="role-chip">Директор</span></div>
       </header>
@@ -42,7 +42,7 @@
         <div class="page-head">
           <div>
             <h2 class="page-head__title">Преподаватели</h2>
-            <p class="muted">Список педагогического состава школы.</p>
+            <p class="muted">Директор создаёт преподавателей и закрепляет за каждым его учеников.</p>
           </div>
           <button class="btn btn--primary" id="btn-add">+ Добавить учителя</button>
         </div>
@@ -51,7 +51,7 @@
           <div class="table-wrap">
             <table class="table">
               <thead>
-                <tr><th>ФИО</th><th>Предмет</th><th>Телефон</th><th>Логин</th><th></th></tr>
+                <tr><th>ФИО</th><th>Предмет</th><th>Телефон</th><th>Логин</th><th>Учеников</th><th></th></tr>
               </thead>
               <tbody id="teachers-body"></tbody>
             </table>
@@ -109,13 +109,17 @@
     (function () {
       App.shell.setup({ login: '../login.html', home: 'dashboard.html', folder: 'director' });
       if (!App.shell.guard(['DIRECTOR'])) return;
-      App.shell.init({ title: 'Преподаватели', subtitle: 'Управление учётными записями педагогов' });
+      App.shell.init({ title: 'Преподаватели', subtitle: 'Учётные записи педагогов и их ученики' });
 
       var tbody = document.getElementById('teachers-body');
       var empty = document.getElementById('teachers-empty');
       var modal = document.getElementById('modal-teacher');
       var form = document.getElementById('teacher-form');
       var errorBox = document.getElementById('teacher-error');
+
+      var teachers = [];
+      var students = [];
+      var teacherNameById = {};
 
       document.addEventListener('click', function (e) {
         var closer = e.target.closest('[data-close]');
@@ -151,19 +155,102 @@
       }
       function showError(msg) { errorBox.textContent = msg; errorBox.style.display = ''; }
 
-      function load() {
-        App.shell.loadInto(tbody, () => App.api.get(App.CONFIG.ENDPOINTS.teachers), (list) => {
-          empty.style.display = list.length ? 'none' : '';
-          if (!list.length) return null;
-          var frag = document.createDocumentFragment();
-          list.forEach((t) => frag.appendChild(App.ui.h('tr', { 'data-id': String(t.id) },
+      function teacherIdsOf(student) {
+        if (!student) return [];
+        if (Array.isArray(student.teacher_ids)) return student.teacher_ids.map(Number);
+        return student.teacher_id != null ? [Number(student.teacher_id)] : [];
+      }
+
+      function studentsOf(teacherId) {
+        return students.filter(function (s) { return teacherIdsOf(s).indexOf(teacherId) !== -1; });
+      }
+
+      function render(list) {
+        empty.style.display = list.length ? 'none' : '';
+        if (!list.length) return null;
+        var frag = document.createDocumentFragment();
+        list.forEach(function (t) {
+          var assigned = studentsOf(t.id).length;
+          frag.appendChild(App.ui.h('tr', { 'data-id': String(t.id) },
             App.ui.h('td', null, App.ui.h('strong', null, t.full_name)),
             App.ui.h('td', null, t.subject || '—'),
             App.ui.h('td', null, t.phone || '—'),
             App.ui.h('td', null, t.login || '—'),
+            App.ui.h('td', null, App.ui.h('span', { class: 'pill' }, String(assigned))),
             App.ui.h('td', { class: 'col-actions' },
-              App.ui.h('button', { class: 'btn btn--danger btn--sm', type: 'button', 'aria-label': 'Удалить' }, 'Удалить')))));
-          return frag;
+              App.ui.h('button', {
+                class: 'btn btn--ghost btn--sm',
+                type: 'button',
+                onclick: function () { openAssign(t); },
+              }, 'Назначить учеников'),
+              App.ui.h('button', { class: 'btn btn--danger btn--sm', type: 'button', 'aria-label': 'Удалить' }, 'Удалить'))));
+        });
+        return frag;
+      }
+
+      function openAssign(teacher) {
+        App.ui.openModal({
+          title: 'Ученики преподавателя «' + teacher.full_name + '»',
+          submitLabel: 'Сохранить',
+          wide: true,
+          body: function () {
+            var wrap = App.ui.h('div', {});
+            wrap.appendChild(App.ui.h('p', { class: 'muted' },
+              'Отметьте учеников, которые ходят на занятия к этому преподавателю. Ученика можно закрепить сразу за несколькими преподавателями: снятая отметка убирает только этого преподавателя, остальные остаются.'));
+            if (!students.length) {
+              wrap.appendChild(App.ui.emptyState('В школе пока нет учеников.'));
+              return wrap;
+            }
+            var listBox = App.ui.h('div', { class: 'checks', style: { gridTemplateColumns: '1fr' } });
+            students.forEach(function (s) {
+              var ids = teacherIdsOf(s);
+              var others = ids.filter(function (id) { return id !== teacher.id; })
+                .map(function (id) { return teacherNameById[id] || ('#' + id); });
+              listBox.appendChild(App.ui.h('label', { class: 'check' },
+                App.ui.h('input', { type: 'checkbox', value: String(s.id), checked: ids.indexOf(teacher.id) !== -1 }),
+                App.ui.h('span', null,
+                  s.full_name
+                  + (s.class_name ? ' · ' + s.class_name : '')
+                  + (others.length ? ' (также у: ' + others.join(', ') + ')' : ''))));
+            });
+            wrap.appendChild(listBox);
+            return wrap;
+          },
+          onSubmit: async function (formEl) {
+            var checked = {};
+            formEl.querySelectorAll('input[type="checkbox"]:checked').forEach(function (c) { checked[Number(c.value)] = true; });
+            var tasks = [];
+            students.forEach(function (s) {
+              var ids = teacherIdsOf(s);
+              var owns = ids.indexOf(teacher.id) !== -1;
+              var shouldOwn = !!checked[s.id];
+              if (shouldOwn === owns) return;
+              var next = shouldOwn
+                ? ids.concat([teacher.id])
+                : ids.filter(function (id) { return id !== teacher.id; });
+              tasks.push(App.api.patch(App.CONFIG.ENDPOINTS.student(s.id), { teacher_ids: next }));
+            });
+            if (!tasks.length) { App.ui.toast('Изменений нет', 'info'); return; }
+            await Promise.all(tasks);
+            App.ui.toast('Ученики закреплены за преподавателем', 'success');
+            load();
+          },
+        });
+      }
+
+      function load() {
+        App.shell.loadInto(tbody, async function () {
+          var results = await Promise.all([
+            App.api.get(App.CONFIG.ENDPOINTS.teachers),
+            App.api.get(App.CONFIG.ENDPOINTS.students),
+          ]);
+          students = results[1] || [];
+          return results[0] || [];
+        }, function (list) {
+          teachers = list;
+          teacherNameById = {};
+          teachers.forEach(function (t) { teacherNameById[t.id] = t.full_name; });
+          return render(list);
         });
       }
       load();
@@ -175,7 +262,7 @@
         var tr = btn.closest('tr');
         var id = Number(tr.getAttribute('data-id'));
         var name = tr.querySelector('strong').textContent;
-        App.ui.confirmDialog('Удалить преподавателя «' + name + '»? Его ученики будут освобождены.')
+        App.ui.confirmDialog('Удалить преподавателя «' + name + '»? Его учётная запись и уроки будут удалены, а ученики останутся закреплены за другими преподавателями.')
           .then(function (ok) {
             if (!ok) return;
             App.api.del(App.CONFIG.ENDPOINTS.teacher(id))

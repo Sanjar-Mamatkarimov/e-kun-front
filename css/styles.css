@@ -274,6 +274,22 @@ textarea.input { resize: vertical; min-height: 74px; }
 .input--file { padding: 6px; }
 select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237b869c' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
 
+.password { position: relative; display: block; }
+.password .input { padding-right: 46px; }
+.password__toggle {
+  position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+  width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px;
+  background: transparent; color: var(--muted); cursor: pointer;
+  display: grid; place-items: center; transition: background .15s, color .15s;
+}
+.password__toggle:hover { background: var(--bg-soft); color: var(--text); }
+.password__toggle:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--primary-soft); }
+.password__toggle.is-on { color: var(--primary); }
+.password__icon { width: 18px; height: 18px; }
+.password__icon--hide { display: none; }
+.password__toggle.is-on .password__icon--show { display: none; }
+.password__toggle.is-on .password__icon--hide { display: block; }
+
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
 .form-grid .field { min-width: 0; }
 .form-note { font-size: 12.5px; color: var(--muted); margin: 0; }
@@ -543,6 +559,59 @@ a.stat-card:hover {
 .login__card { border: 1px solid rgba(255, 255, 255, .72); }
 .login__title { letter-spacing: -.025em; }
 
+/* -------- декоративный музыкальный фон страницы входа -------- */
+.login__deco { position: absolute; inset: 0; overflow: hidden; pointer-events: none; user-select: none; z-index: 0; }
+.login__card, .login__footer { z-index: 1; }
+.login__glow {
+  position: absolute; inset: -12%;
+  background:
+    radial-gradient(760px 520px at 50% -8%, rgba(213, 173, 104, .2), transparent 66%),
+    radial-gradient(560px 470px at 6% 104%, rgba(165, 56, 74, .28), transparent 70%),
+    radial-gradient(560px 470px at 99% 96%, rgba(191, 132, 83, .22), transparent 70%);
+  animation: loginBreathe 12s ease-in-out infinite;
+}
+@keyframes loginBreathe { 0%, 100% { opacity: .78; } 50% { opacity: 1; } }
+
+.login__staff {
+  position: absolute; left: -4%; right: -4%; top: 24%;
+  height: 64px; transform: rotate(-6deg); opacity: .09;
+  background: repeating-linear-gradient(180deg, rgba(255, 255, 255, .95) 0 1px, transparent 1px 15px);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+}
+.login__staff--low { top: auto; bottom: 7%; transform: rotate(4deg); opacity: .07; }
+
+.login__icon {
+  position: absolute; left: var(--x); top: var(--y);
+  font-size: var(--s, 64px); line-height: 1;
+  opacity: var(--o, .12);
+  transform: rotate(var(--r, 0deg));
+  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, .38));
+  animation: loginFloat var(--dur, 12s) ease-in-out infinite;
+  animation-delay: var(--d, 0s);
+  will-change: transform;
+}
+@keyframes loginFloat {
+  0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); }
+  50% { transform: translateY(-16px) rotate(calc(var(--r, 0deg) + 7deg)); }
+}
+.login__icon--note { filter: drop-shadow(0 0 14px rgba(213, 173, 104, .55)); }
+
+.login__drift {
+  position: absolute; left: var(--x); bottom: -60px;
+  font-size: var(--s, 22px); line-height: 1; opacity: 0;
+  animation: loginDrift var(--dur, 18s) linear infinite;
+  animation-delay: var(--d, 0s);
+}
+@keyframes loginDrift {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+  12% { opacity: .22; }
+  85% { opacity: .16; }
+  100% { transform: translateY(-108vh) rotate(24deg); opacity: 0; }
+}
+.login__card { box-shadow: 0 34px 80px -22px rgba(0, 0, 0, .6); }
+
+
 /* ============================ АДАПТИВ ============================ */
 @media (max-width: 760px) {
   .sidebar {
@@ -566,6 +635,8 @@ a.stat-card:hover {
   .panel__head { padding: 15px 16px; }
   .table th, .table td { padding-right: 14px; padding-left: 14px; }
   .login__card { padding: 28px 22px 24px; }
+  .login__icon:not(.login__icon--note), .login__staff { display: none; }
+  .login__icon--note { opacity: .16; }
   .form-grid { grid-template-columns: 1fr; }
   .poster { padding: 22px; }
   .poster__title { font-size: 21px; }

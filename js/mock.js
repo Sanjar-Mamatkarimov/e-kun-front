@@ -16,20 +16,20 @@
     ],
 
     teachers: [
-      { id: 2, full_name: 'Дмитрий Ким', subject: 'Специальность (скрипка)', phone: '+7 701 111 22 33', login: 'teacher' },
+      { id: 2, full_name: 'Дмитрий Ким', subject: 'Специальность', phone: '+7 701 111 22 33', login: 'teacher' },
       { id: 4, full_name: 'Марина Орлова', subject: 'Сольфеджио', phone: '+7 702 555 66 77', login: 'orlova' },
-      { id: 5, full_name: 'Сергей Волков', subject: 'Хор / Оркестр', phone: '+7 705 888 99 00', login: 'volkov' },
+      { id: 5, full_name: 'Сергей Волков', subject: 'Хор', phone: '+7 705 888 99 00', login: 'volkov' },
       { id: 6, full_name: 'Гульнара Ахметова', subject: 'Муз. литература', phone: '+7 707 123 45 67', login: 'ahmetova' },
     ],
 
     students: [
-      { id: 3,  full_name: 'Алия Нурланова',   class_name: '3 класс', teacher_id: 2, subjects: ['Специальность', 'Сольфеджио', 'Хор'], login: 'student', birth_date: '2013-04-12' },
-      { id: 7,  full_name: 'Тимур Бекболатов', class_name: '3 класс', teacher_id: 2, subjects: ['Специальность', 'Сольфеджио'], login: 'timur',   birth_date: '2013-01-20' },
-      { id: 8,  full_name: 'София Ли',         class_name: '4 класс', teacher_id: 2, subjects: ['Специальность', 'Оркестр'], login: 'sofia',    birth_date: '2012-09-03' },
-      { id: 9,  full_name: 'Данияр Сейтов',    class_name: '2 класс', teacher_id: 4, subjects: ['Специальность', 'Сольфеджио'], login: 'daniyar', birth_date: '2014-06-15' },
-      { id: 10, full_name: 'Камила Жумабай',   class_name: '5 класс', teacher_id: 5, subjects: ['Хор', 'Ансамбль'], login: 'kamila', birth_date: '2011-11-28' },
-      { id: 11, full_name: 'Амир Оспанов',     class_name: '2 класс', teacher_id: 4, subjects: ['Специальность', 'Хор'], login: 'amir', birth_date: '2014-03-08' },
-      { id: 12, full_name: 'Ева Соколова',     class_name: '6 класс', teacher_id: 6, subjects: ['Муз. литература', 'Сольфеджио'], login: 'eva', birth_date: '2010-12-01' },
+      { id: 3,  full_name: 'Алия Нурланова',   class_name: '3 класс', teacher_ids: [2, 4, 5, 6], subjects: ['Специальность', 'Сольфеджио', 'Хор'], login: 'student', birth_date: '2013-04-12' },
+      { id: 7,  full_name: 'Тимур Бекболатов', class_name: '3 класс', teacher_ids: [2], subjects: ['Специальность', 'Сольфеджио'], login: 'timur',   birth_date: '2013-01-20' },
+      { id: 8,  full_name: 'София Ли',         class_name: '4 класс', teacher_ids: [2], subjects: ['Специальность', 'Оркестр'], login: 'sofia',    birth_date: '2012-09-03' },
+      { id: 9,  full_name: 'Данияр Сейтов',    class_name: '2 класс', teacher_ids: [4], subjects: ['Специальность', 'Сольфеджио'], login: 'daniyar', birth_date: '2014-06-15' },
+      { id: 10, full_name: 'Камила Жумабай',   class_name: '5 класс', teacher_ids: [5], subjects: ['Хор', 'Ансамбль'], login: 'kamila', birth_date: '2011-11-28' },
+      { id: 11, full_name: 'Амир Оспанов',     class_name: '2 класс', teacher_ids: [4], subjects: ['Специальность', 'Хор'], login: 'amir', birth_date: '2014-03-08' },
+      { id: 12, full_name: 'Ева Соколова',     class_name: '6 класс', teacher_ids: [6], subjects: ['Муз. литература', 'Сольфеджио'], login: 'eva', birth_date: '2010-12-01' },
     ],
 
     events: [
@@ -74,7 +74,7 @@
 
     quarterGrades: [],
 
-    _seq: { teachers: 100, students: 100, events: 100, journal: 100, repertoire: 100, homework: 100, schedule: 100, quarterGrades: 100 },
+    _seq: { users: 100, teachers: 100, students: 100, events: 100, journal: 100, repertoire: 100, homework: 100, schedule: 100, quarterGrades: 100 },
   };
 
   const DEMO_JOURNAL_KEY = 'ek_demo_journal_v1';
@@ -113,6 +113,15 @@
     const saved = studentEdits.find((item) => item.id === student.id);
     if (saved) Object.assign(student, saved);
   });
+  // приводим к формату «ученик может ходить к нескольким учителям»
+  // (совместимость со старым одиночным полем teacher_id)
+  state.students.forEach((student) => {
+    if (!Array.isArray(student.teacher_ids)) {
+      student.teacher_ids = student.teacher_id != null ? [Number(student.teacher_id)] : [];
+    }
+    student.teacher_ids = Array.from(new Set(student.teacher_ids.map(Number).filter((n) => Number.isInteger(n) && n > 0)));
+    delete student.teacher_id;
+  });
   state._seq.journal = Math.max(state._seq.journal, ...state.journal.map((item) => Number(item.id) || 0));
   state._seq.schedule = Math.max(state._seq.schedule, ...state.schedule.map((item) => Number(item.id) || 0));
   state._seq.quarterGrades = Math.max(state._seq.quarterGrades, ...state.quarterGrades.map((item) => Number(item.id) || 0));
@@ -132,7 +141,31 @@
   }
 
   function publicUser(u) {
-    return { id: u.id, username: u.username, role: u.role, full_name: u.full_name };
+    const base = { id: u.id, username: u.username, role: u.role, full_name: u.full_name };
+    // учителю передаём его предмет — урок, назначенный директором
+    if (u.role === 'TEACHER') {
+      const teacher = state.teachers.find((t) => t.id === u.id);
+      if (teacher) base.subject = teacher.subject;
+    }
+    return base;
+  }
+
+  /* Предмет (урок), назначенный учителю директором. */
+  function teacherSubjectOf(teacherId) {
+    const teacher = state.teachers.find((t) => t.id === teacherId);
+    return teacher ? String(teacher.subject || '') : '';
+  }
+
+  /* Ученик может быть закреплён сразу за несколькими преподавателями. */
+  function studentTeacherIds(student) {
+    if (!student) return [];
+    if (Array.isArray(student.teacher_ids)) return student.teacher_ids.map(Number).filter((n) => Number.isInteger(n));
+    if (student.teacher_id != null) return [Number(student.teacher_id)];
+    return [];
+  }
+
+  function isTeacherOf(student, teacherId) {
+    return studentTeacherIds(student).includes(Number(teacherId));
   }
 
   const delay = (data) => new Promise((res) => setTimeout(() => res(clone(data)), 220));
@@ -181,6 +214,19 @@
     const body = payload && payload.body;
     const get = (obj, key) => (obj instanceof FormData ? obj.get(key) : obj && obj[key]);
 
+    const has = (obj, key) => (obj instanceof FormData ? obj.has(key) : !!obj && Object.prototype.hasOwnProperty.call(obj, key));
+    const readTeacherIds = () => {
+      let raw;
+      if (body instanceof FormData) raw = body.getAll('teacher_ids');
+      else raw = body && body.teacher_ids;
+      if (raw === undefined || raw === null) {
+        const single = get(body, 'teacher_id');
+        raw = single != null && single !== '' ? [single] : [];
+      }
+      const arr = Array.isArray(raw) ? raw : [raw];
+      return Array.from(new Set(arr.map(Number).filter((n) => Number.isInteger(n) && n > 0)));
+    };
+
     // ---- Auth ----
     if (M === 'POST' && pathname === App.CONFIG.ENDPOINTS.login) {
       const u = state.users.find((x) => x.username === get(body, 'username') && x.password === get(body, 'password'));
@@ -215,18 +261,27 @@
       return delay(state.students.map(studentStatistics));
     }
 
-    // ---- Teachers ----
+    // ---- Teachers (учётные записи создаёт и удаляет только директор) ----
     if (pathname === App.CONFIG.ENDPOINTS.teachers) {
       if (M === 'GET') return delay(state.teachers);
       if (M === 'POST') {
+        if (user.role !== 'DIRECTOR') return fail('Преподавателей создаёт только директор', 403);
+        const fullName = String(get(body, 'full_name') || '').trim();
+        const login = String(get(body, 'login') || '').trim();
+        const password = String(get(body, 'password') || '');
+        if (!fullName || !login || !password) return fail('Укажите ФИО, логин и пароль преподавателя.', 400);
+        if (state.users.some((u) => u.username === login)) return fail('Такой логин уже занят.', 400);
+        const id = nextId('users');
         const item = {
-          id: nextId('teachers'),
-          full_name: get(body, 'full_name'),
+          id,
+          full_name: fullName,
           subject: get(body, 'subject'),
           phone: get(body, 'phone'),
-          login: get(body, 'login'),
+          login,
         };
         state.teachers.push(item);
+        // учётная запись преподавателя (создаётся директором)
+        state.users.push({ id, username: login, password, role: 'TEACHER', full_name: fullName });
         return delay(item);
       }
     }
@@ -234,15 +289,21 @@
     if ((m = /^\/api\/teachers\/(\d+)\/$/.exec(pathname))) {
       const id = Number(m[1]);
       if (M === 'DELETE') {
+        if (user.role !== 'DIRECTOR') return fail('Удалять преподавателей может только директор', 403);
         state.teachers = state.teachers.filter((t) => t.id !== id);
-        // ученики удалённого преподавателя освобождаются (теряют teacher_id)
-        state.students.forEach((s) => { if (s.teacher_id === id) s.teacher_id = null; });
+        // учётная запись преподавателя удаляется
+        state.users = state.users.filter((u) => !(u.id === id && u.role === 'TEACHER'));
+        // ученики удалённого преподавателя теряют его в списке своих учителей
+        state.students.forEach((s) => {
+          const ids = studentTeacherIds(s);
+          if (ids.includes(id)) s.teacher_ids = ids.filter((tid) => tid !== id);
+        });
         return delay({ ok: true });
       }
       if (M === 'GET') return delay(state.teachers.find((t) => t.id === id));
     }
 
-    // ---- Students ----
+    // ---- Students (учётные записи учеников создаёт директор и закрепляет за преподавателем) ----
     if (pathname === App.CONFIG.ENDPOINTS.students) {
       if (M === 'GET') {
         let list = state.students.slice();
@@ -250,18 +311,28 @@
         return delay(list);
       }
       if (M === 'POST') {
+        if (user.role !== 'DIRECTOR') return fail('Учеников создаёт только директор', 403);
         const subjects = body instanceof FormData ? body.getAll('subjects') : (body.subjects || []);
+        const fullName = String(get(body, 'full_name') || '').trim();
+        const login = String(get(body, 'login') || '').trim();
+        const password = String(get(body, 'password') || '');
+        if (!fullName || !login || !password) return fail('Укажите ФИО, логин и пароль ученика.', 400);
+        if (!subjects.length) return fail('Выберите хотя бы один предмет.', 400);
+        if (state.users.some((u) => u.username === login)) return fail('Такой логин уже занят.', 400);
+        const teacherIds = readTeacherIds().filter((tid) => state.teachers.some((t) => t.id === tid));
+        const id = nextId('users');
         const item = {
-          id: nextId('students'),
-          full_name: get(body, 'full_name'),
+          id,
+          full_name: fullName,
           class_name: get(body, 'class_name'),
           subjects: subjects,
           birth_date: get(body, 'birth_date'),
-          login: get(body, 'login'),
-          password: get(body, 'password'),
-          teacher_id: user.role === 'TEACHER' ? user.id : (Number(get(body, 'teacher_id')) || null),
+          login,
+          teacher_ids: teacherIds,
         };
         state.students.push(item);
+        // учётная запись ученика (создаётся директором)
+        state.users.push({ id, username: login, password, role: 'STUDENT', full_name: fullName });
         return delay(item);
       }
     }
@@ -270,7 +341,9 @@
       const student = state.students.find((item) => item.id === id);
       if (!student) return fail('Ученик не найден', 404);
       if (M === 'PATCH') {
-        if (user.role !== 'TEACHER' || student.teacher_id !== user.id) return fail('Недостаточно прав', 403);
+        const isDirector = user.role === 'DIRECTOR';
+        const isOwner = user.role === 'TEACHER' && isTeacherOf(student, user.id);
+        if (!isDirector && !isOwner) return fail('Недостаточно прав', 403);
         const fullName = get(body, 'full_name');
         const className = get(body, 'class_name');
         const birthDate = get(body, 'birth_date');
@@ -289,19 +362,37 @@
         if (className !== undefined) student.class_name = String(className).trim();
         if (birthDate !== undefined) student.birth_date = String(birthDate).trim();
         if (updatedSubjects) student.subjects = updatedSubjects;
+        // директор закрепляет ученика за одним или несколькими преподавателями и управляет доступом
+        if (isDirector) {
+          if (has(body, 'teacher_ids') || has(body, 'teacher_id')) {
+            student.teacher_ids = readTeacherIds().filter((tid) => state.teachers.some((t) => t.id === tid));
+          }
+          const account = state.users.find((u) => u.id === student.id && u.role === 'STUDENT');
+          if (account) {
+            const login = get(body, 'login');
+            if (login !== undefined && String(login).trim()) account.username = String(login).trim();
+            const password = get(body, 'password');
+            if (password !== undefined && String(password)) account.password = String(password);
+            account.full_name = student.full_name;
+          }
+        }
         const edit = {
           id: student.id,
           full_name: student.full_name,
           class_name: student.class_name,
           birth_date: student.birth_date,
           subjects: student.subjects,
+          teacher_ids: studentTeacherIds(student),
         };
         studentEdits = studentEdits.filter((item) => item.id !== student.id).concat(edit);
         saveDemoList(DEMO_STUDENT_EDITS_KEY, studentEdits);
         return delay(student);
       }
       if (M === 'DELETE') {
+        if (user.role !== 'DIRECTOR') return fail('Удалять учеников может только директор', 403);
         state.students = state.students.filter((s) => s.id !== id);
+        // учётная запись ученика удаляется
+        state.users = state.users.filter((u) => !(u.id === id && u.role === 'STUDENT'));
         // чистим связанные данные ученика: журнал, репертуар, ДЗ, расписание
         state.journal = state.journal.filter((j) => j.student_id !== id);
         state.repertoire = state.repertoire.filter((r) => r.student_id !== id);
@@ -348,44 +439,47 @@
       return delay(App.CONFIG.SUBJECTS.map((s, i) => ({ id: i + 1, name: s })));
     }
 
-    // ---- Teacher: мои ученики ----
+    // ---- Teacher: мои ученики (только просмотр — учеников создаёт директор) ----
     if (pathname === App.CONFIG.ENDPOINTS.myStudents) {
-      if (M === 'GET') return delay(state.students.filter((s) => s.teacher_id === user.id));
-      if (M === 'POST') {
-        const subjects = body instanceof FormData ? body.getAll('subjects') : (body.subjects || []);
-        const item = {
-          id: nextId('students'),
-          full_name: get(body, 'full_name'),
-          class_name: get(body, 'class_name'),
-          birth_date: get(body, 'birth_date'),
-          login: get(body, 'login'),
-          password: get(body, 'password'),
-          subjects: subjects,
-          teacher_id: user.id,
-        };
-        state.students.push(item);
-        return delay(item);
+      if (M === 'GET') {
+        if (user.role !== 'TEACHER') return fail('Недостаточно прав', 403);
+        return delay(state.students.filter((s) => isTeacherOf(s, user.id)));
       }
+      if (M === 'POST') return fail('Учеников создаёт только директор', 403);
     }
     if (M === 'GET' && pathname === App.CONFIG.ENDPOINTS.teacherStudentStats) {
       if (user.role !== 'TEACHER') return fail('Недостаточно прав', 403);
-      return delay(state.students.filter((student) => student.teacher_id === user.id).map(studentStatistics));
+      return delay(state.students.filter((student) => isTeacherOf(student, user.id)).map(studentStatistics));
     }
 
     // ---- Journal ----
     if (pathname === App.CONFIG.ENDPOINTS.journal) {
       if (M === 'GET') {
         let list = state.journal.slice();
+        if (user.role === 'TEACHER') {
+          const mine = state.students.filter((s) => isTeacherOf(s, user.id)).map((s) => s.id);
+          list = list.filter((entry) => mine.includes(entry.student_id));
+        }
         if (qs.student) list = list.filter((j) => String(j.student_id) === String(qs.student));
         if (qs.subject) list = list.filter((j) => j.subject === qs.subject);
         list.sort((a, b) => (a.date < b.date ? 1 : -1));
         return delay(list);
       }
       if (M === 'POST') {
+        const studentId = Number(get(body, 'student_id'));
+        const postSubject = String(get(body, 'subject') || '');
+        if (user.role === 'TEACHER') {
+          const own = state.students.find((s) => s.id === studentId && isTeacherOf(s, user.id));
+          if (!own) return fail('Это не ваш ученик.', 403);
+          const mySubject = teacherSubjectOf(user.id);
+          if (mySubject && postSubject !== mySubject) {
+            return fail('Журнал ведётся только по вашему предмету.', 403);
+          }
+        }
         const item = {
           id: nextId('journal'),
-          student_id: Number(get(body, 'student_id')),
-          subject: get(body, 'subject'),
+          student_id: studentId,
+          subject: postSubject,
           date: get(body, 'date'),
           attendance: get(body, 'attendance') || 'Б',
           grade: get(body, 'grade') ? Number(get(body, 'grade')) : null,
@@ -410,7 +504,7 @@
       }
       if (M === 'POST') {
         const studentId = Number(get(body, 'student_id'));
-        const student = state.students.find((item) => item.id === studentId && item.teacher_id === user.id);
+        const student = state.students.find((item) => item.id === studentId && isTeacherOf(item, user.id));
         const subject = String(get(body, 'subject') || '').trim();
         const schoolYear = String(get(body, 'school_year') || '').trim();
         const quarter = Number(get(body, 'quarter'));
@@ -418,7 +512,10 @@
         const endDate = String(get(body, 'end_date') || '');
         const gradeValue = Number(get(body, 'grade'));
         if (!student) return fail('Ученик не найден или не закреплён за вами.', 403);
-        if (!(student.subjects || []).includes(subject)) return fail('У ученика нет выбранного предмета.', 400);
+        const mySubject = teacherSubjectOf(user.id);
+        if (mySubject && subject !== mySubject) {
+          return fail('Оценки ставятся только по вашему предмету.', 403);
+        }
         if (!schoolYear || ![1, 2, 3, 4].includes(quarter)) return fail('Укажите учебный год и четверть.', 400);
         if (!isValidISODate(startDate) || !isValidISODate(endDate) || startDate > endDate) {
           return fail('Укажите корректные даты четверти.', 400);
@@ -454,13 +551,21 @@
     if (pathname === App.CONFIG.ENDPOINTS.repertoire) {
       if (M === 'GET') {
         let list = state.repertoire.slice();
+        if (user.role === 'TEACHER') {
+          const mine = state.students.filter((s) => isTeacherOf(s, user.id)).map((s) => s.id);
+          list = list.filter((r) => mine.includes(r.student_id));
+        }
         if (qs.student) list = list.filter((r) => String(r.student_id) === String(qs.student));
         return delay(list);
       }
       if (M === 'POST') {
+        const studentId = Number(get(body, 'student_id'));
+        if (user.role === 'TEACHER' && !state.students.some((s) => s.id === studentId && isTeacherOf(s, user.id))) {
+          return fail('Это не ваш ученик.', 403);
+        }
         const item = {
           id: nextId('repertoire'),
-          student_id: Number(get(body, 'student_id')),
+          student_id: studentId,
           title: get(body, 'title'),
           composer: get(body, 'composer'),
           subject: get(body, 'subject') || 'Специальность',
@@ -474,6 +579,9 @@
       const id = Number(m[1]);
       const item = state.repertoire.find((r) => r.id === id);
       if (!item) return fail('Не найдено', 404);
+      if (user.role === 'TEACHER' && !state.students.some((s) => s.id === item.student_id && isTeacherOf(s, user.id))) {
+        return fail('Это не ваш ученик.', 403);
+      }
       if (M === 'PATCH' || M === 'PUT') {
         ['title', 'composer', 'subject', 'status'].forEach((k) => {
           const v = get(body, k);
@@ -491,16 +599,24 @@
     if (pathname === App.CONFIG.ENDPOINTS.homework) {
       if (M === 'GET') {
         let list = state.homework.slice();
+        if (user.role === 'TEACHER') {
+          const mine = state.students.filter((s) => isTeacherOf(s, user.id)).map((s) => s.id);
+          list = list.filter((hw) => mine.includes(hw.student_id));
+        }
         if (qs.student) list = list.filter((hw) => String(hw.student_id) === String(qs.student));
         list.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
         return delay(list);
       }
       if (M === 'POST') {
+        const studentId = Number(get(body, 'student_id'));
+        if (user.role === 'TEACHER' && !state.students.some((s) => s.id === studentId && isTeacherOf(s, user.id))) {
+          return fail('Это не ваш ученик.', 403);
+        }
         const file = body instanceof FormData ? body.get('file') : null;
         const item = {
           id: nextId('homework'),
           subject: get(body, 'subject'),
-          student_id: Number(get(body, 'student_id')),
+          student_id: studentId,
           title: get(body, 'title'),
           description: get(body, 'description') || '',
           due_date: get(body, 'due_date'),
@@ -528,7 +644,7 @@
       }
       if (M === 'POST') {
         const studentId = Number(get(body, 'student_id'));
-        const student = state.students.find((item) => item.id === studentId && item.teacher_id === user.id);
+        const student = state.students.find((item) => item.id === studentId && isTeacherOf(item, user.id));
         if (!student) return fail('Выберите своего ученика.', 400);
         const day = get(body, 'day');
         const time = get(body, 'time');

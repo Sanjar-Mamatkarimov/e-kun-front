@@ -45,12 +45,12 @@
         <div class="page-head">
           <div>
             <h2 class="page-head__title">Итоги четверти</h2>
-            <p class="muted">Рекомендация — среднее текущих оценок за выбранный период, округлённое до целого. Итоговую оценку подтверждает учитель.</p>
+            <p class="muted">Только ваш предмет и ваши ученики, назначенные директором. Рекомендация — среднее текущих оценок за период; итоговую оценку подтверждаете вы.</p>
           </div>
         </div>
 
         <div class="toolbar">
-          <label class="toolbar__field"><span>Предмет:</span><select class="input input--sm" id="sel-subject"></select></label>
+          <span class="toolbar__field"><span>Мой предмет:</span><span class="chip" id="lesson-subject">…</span></span>
           <label class="toolbar__field"><span>Учебный год:</span><select class="input input--sm" id="sel-year"></select></label>
           <label class="toolbar__field"><span>Четверть:</span>
             <select class="input input--sm" id="sel-quarter">
@@ -94,13 +94,14 @@
       if (!App.shell.guard(['TEACHER'])) return;
       App.shell.init({ title: 'Четвертные оценки', subtitle: 'Рекомендации по текущим оценкам' });
 
-      var subjectSel = document.getElementById('sel-subject');
+      var subjectEl = document.getElementById('lesson-subject');
       var yearSel = document.getElementById('sel-year');
       var quarterSel = document.getElementById('sel-quarter');
       var startInput = document.getElementById('inp-start');
       var endInput = document.getElementById('inp-end');
       var body = document.getElementById('grades-body');
       var students = [];
+      var subject = '';
 
       var now = new Date();
       var schoolYearStart = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
@@ -114,20 +115,14 @@
 
       Promise.all([
         App.api.get(App.CONFIG.ENDPOINTS.myStudents),
-        App.api.get(App.CONFIG.ENDPOINTS.subjects),
+        App.api.fetchMe().catch(function () { return App.auth.getUser() || {}; }),
       ]).then(function (results) {
         students = results[0] || [];
-        var available = new Set();
-        students.forEach(function (student) {
-          (student.subjects || []).forEach(function (subject) { available.add(subject); });
-        });
-        var subjects = (results[1] || []).map(function (item) { return item.name; }).filter(function (name) {
-          return available.has(name);
-        });
-        if (!subjects.length) subjects = Array.from(available);
-        subjects.forEach(function (name) { subjectSel.appendChild(App.ui.h('option', { value: name }, name)); });
-        if (!subjects.length) {
-          App.ui.mount(body, App.ui.emptyState('Нет учеников с назначенными предметами.'));
+        var me = results[1] || {};
+        subject = me.subject || (App.auth.getUser() || {}).subject || '';
+        subjectEl.textContent = subject || 'не назначен';
+        if (!subject) {
+          App.ui.mount(body, App.ui.emptyState('Директор ещё не назначил вам предмет. Обратитесь к директору.'));
           document.getElementById('btn-save').disabled = true;
           return;
         }
@@ -137,22 +132,22 @@
         document.getElementById('btn-save').disabled = true;
       });
 
-      [subjectSel, yearSel, quarterSel, startInput, endInput].forEach(function (input) {
+      [yearSel, quarterSel, startInput, endInput].forEach(function (input) {
         input.addEventListener('change', refresh);
       });
 
       function refresh() {
         var startDate = startInput.value;
         var endDate = endInput.value;
-        if (!subjectSel.value || !startDate || !endDate || startDate > endDate) {
+        if (!subject || !startDate || !endDate || startDate > endDate) {
           App.ui.mount(body, App.ui.emptyState('Укажите корректный период четверти.'));
           return;
         }
         App.ui.mount(body, App.ui.spinner('Рассчитываем рекомендации…'));
         Promise.all([
-          App.api.get(App.CONFIG.ENDPOINTS.journal, { subject: subjectSel.value }),
+          App.api.get(App.CONFIG.ENDPOINTS.journal, { subject: subject }),
           App.api.get(App.CONFIG.ENDPOINTS.quarterGrades, {
-            subject: subjectSel.value,
+            subject: subject,
             school_year: yearSel.value,
             quarter: quarterSel.value,
           }),
@@ -164,16 +159,13 @@
       }
 
       function renderRows(entries, savedGrades, startDate, endDate) {
-        var subjectStudents = students.filter(function (student) {
-          return (student.subjects || []).includes(subjectSel.value);
-        });
-        if (!subjectStudents.length) {
-          App.ui.mount(body, App.ui.emptyState('У учеников нет этого предмета.'));
+        if (!students.length) {
+          App.ui.mount(body, App.ui.emptyState('Пока нет учеников, назначенных вам директором.'));
           return;
         }
         var savedByStudent = new Map();
         savedGrades.forEach(function (item) { savedByStudent.set(String(item.student_id), item); });
-        App.ui.mount(body, subjectStudents.map(function (student) {
+        App.ui.mount(body, students.map(function (student) {
           var grades = entries.filter(function (entry) {
             return entry.student_id === student.id && entry.grade != null &&
               entry.date >= startDate && entry.date <= endDate;
@@ -216,7 +208,7 @@
         }).map(function (row) {
           return App.api.post(App.CONFIG.ENDPOINTS.quarterGrades, {
             student_id: Number(row.getAttribute('data-sid')),
-            subject: subjectSel.value,
+            subject: subject,
             school_year: yearSel.value,
             quarter: Number(quarterSel.value),
             start_date: startDate,

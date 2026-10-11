@@ -36,7 +36,7 @@
         <button class="topbar__menu" id="menu-btn" aria-label="Меню">☰</button>
         <div class="topbar__titles">
           <h1 class="topbar__title">Мои ученики</h1>
-          <p class="topbar__subtitle">Ученики, прикреплённые к вам</p>
+          <p class="topbar__subtitle">Ученики, закреплённые за вами директором</p>
         </div>
         <div class="topbar__right"><span class="role-chip">Преподаватель</span></div>
       </header>
@@ -45,9 +45,8 @@
         <div class="page-head">
           <div>
             <h2 class="page-head__title">Мои ученики</h2>
-            <p class="muted">Список учеников, закреплённых за данным преподавателем.</p>
+            <p class="muted">Список учеников, закреплённых за вами. Учётные записи создаёт директор.</p>
           </div>
-          <button class="btn btn--primary" id="btn-add">+ Создать ученика</button>
         </div>
 
         <div class="panel">
@@ -61,18 +60,18 @@
           </div>
           <div id="students-empty" class="state state--empty" style="display:none">
             <div class="state__icon">🎓</div>
-            <p>У вас пока нет учеников.</p>
+            <p>У вас пока нет учеников. Директор закрепит их за вами.</p>
           </div>
         </div>
       </main>
     </div>
   </div>
 
-  <!-- Модальное окно: создание и редактирование ученика -->
+  <!-- Модальное окно: редактирование ученика -->
   <div class="modal-overlay modal-hidden" id="modal-student">
     <form class="modal modal--wide" id="student-form">
       <div class="modal__head">
-        <h3 class="modal__title" id="student-modal-title">Новый ученик</h3>
+        <h3 class="modal__title">Редактировать ученика</h3>
         <button type="button" class="modal__close" data-close="modal-student" aria-label="Закрыть">✕</button>
       </div>
       <div class="modal__body">
@@ -88,15 +87,11 @@
             </select></label>
           <label class="field"><span class="field__label">Дата рождения</span>
             <input class="input" name="birth_date" type="date" /></label>
-          <label class="field" id="student-login-field"><span class="field__label">Логин</span>
-            <input class="input" name="login" id="st-login" placeholder="генерируется" /></label>
-          <label class="field" id="student-password-field"><span class="field__label">Пароль</span>
-            <input class="input" name="password" id="st-password" placeholder="генерируется" /></label>
 
           <div class="field" style="grid-column:1/-1">
             <span class="field__label">Предметы <span class="muted">(отметьте все предметы ученика)</span></span>
             <div class="checks">
-              <label class="check"><input type="checkbox" name="subjects" value="Специальность" checked /><span>Специальность</span></label>
+              <label class="check"><input type="checkbox" name="subjects" value="Специальность" /><span>Специальность</span></label>
               <label class="check"><input type="checkbox" name="subjects" value="Сольфеджио" /><span>Сольфеджио</span></label>
               <label class="check"><input type="checkbox" name="subjects" value="Муз. литература" /><span>Муз. литература</span></label>
               <label class="check"><input type="checkbox" name="subjects" value="Хор" /><span>Хор</span></label>
@@ -105,16 +100,13 @@
               <label class="check"><input type="checkbox" name="subjects" value="Теория музыки" /><span>Теория музыки</span></label>
             </div>
           </div>
-          <div style="grid-column:1/-1">
-            <button type="button" class="btn btn--ghost btn--sm" id="btn-generate">⚙ Сгенерировать логин и пароль</button>
-          </div>
         </div>
         <div class="modal__error" id="student-error" style="display:none"></div>
       </div>
-      <p class="form-note" id="student-edit-note" style="display:none;padding:0 22px 14px">Отмеченные предметы останутся у ученика, снятые отметки удалят предмет.</p>
+      <p class="form-note" style="padding:0 22px 14px">Отмеченные предметы останутся у ученика, снятые отметки удалят предмет. Закрепление за преподавателем и доступ к аккаунту меняет директор.</p>
       <div class="modal__foot">
         <button type="button" class="btn btn--ghost" data-close="modal-student">Отмена</button>
-        <button type="submit" class="btn btn--primary" id="student-submit">Создать</button>
+        <button type="submit" class="btn btn--primary" id="student-submit">Сохранить изменения</button>
       </div>
     </form>
   </div>
@@ -129,7 +121,7 @@
     (function () {
       App.shell.setup({ login: '../login.html', home: 'dashboard.html', folder: 'teacher' });
       if (!App.shell.guard(['TEACHER'])) return;
-      App.shell.init({ title: 'Мои ученики', subtitle: 'Управление учениками' });
+      App.shell.init({ title: 'Мои ученики', subtitle: 'Ученики, закреплённые за вами' });
 
       var tbody = document.getElementById('students-body');
       var empty = document.getElementById('students-empty');
@@ -138,22 +130,10 @@
       var errorBox = document.getElementById('student-error');
       var statisticsByStudent = {};
       var editingStudentId = null;
-      var modalTitle = document.getElementById('student-modal-title');
-      var submitButton = document.getElementById('student-submit');
-      var editNote = document.getElementById('student-edit-note');
-      var credentialFields = [
-        document.getElementById('student-login-field'),
-        document.getElementById('student-password-field'),
-        document.getElementById('btn-generate').parentElement,
-      ];
 
       function openModal(student) {
         form.reset();
         editingStudentId = student ? student.id : null;
-        modalTitle.textContent = student ? 'Редактировать ученика' : 'Новый ученик';
-        submitButton.textContent = student ? 'Сохранить изменения' : 'Создать';
-        editNote.style.display = student ? '' : 'none';
-        credentialFields.forEach(function (field) { field.style.display = student ? 'none' : ''; });
         if (student) {
           form.querySelector('[name="full_name"]').value = student.full_name || '';
           form.querySelector('[name="class_name"]').value = student.class_name || '1 класс';
@@ -179,56 +159,28 @@
         if (e.target.classList.contains('modal-overlay')) closeModal();
       });
 
-      document.getElementById('btn-add').addEventListener('click', function () { openModal(); });
-
-      document.getElementById('btn-generate').addEventListener('click', function () {
-        var fullName = form.querySelector('input[name="full_name"]').value.trim();
-        var creds = generateCredentials(fullName);
-        document.getElementById('st-login').value = creds.login;
-        document.getElementById('st-password').value = creds.password;
-      });
-
       form.addEventListener('submit', async function (e) {
         e.preventDefault();
         var data = {};
-        form.querySelectorAll('input, select').forEach(function (el) { if (el.name) data[el.name] = el.value.trim(); });
+        form.querySelectorAll('input, select').forEach(function (el) { if (el.name && el.name !== 'subjects') data[el.name] = el.value.trim(); });
         data.subjects = Array.from(form.querySelectorAll('input[name="subjects"]:checked')).map(function (c) { return c.value; });
         if (!data.full_name) { showError('Укажите ФИО ученика.'); return; }
         if (!data.subjects.length) { showError('Выберите хотя бы один предмет.'); return; }
-        var isEditing = editingStudentId !== null;
         var submit = form.querySelector('button[type="submit"]');
         submit.disabled = true;
         try {
-          if (isEditing) {
-            await App.api.patch(App.CONFIG.ENDPOINTS.student(editingStudentId), {
-              full_name: data.full_name,
-              class_name: data.class_name,
-              birth_date: data.birth_date,
-              subjects: data.subjects,
-            });
-            App.ui.toast('Данные ученика обновлены.', 'success');
-          } else {
-            var creds = generateCredentials(data.full_name);
-            data.login = data.login || creds.login;
-            data.password = data.password || creds.password;
-            await App.api.post(App.CONFIG.ENDPOINTS.myStudents, data);
-            App.ui.toast('Ученик создан. Логин: ' + data.login + ' / Пароль: ' + data.password, 'success');
-          }
+          await App.api.patch(App.CONFIG.ENDPOINTS.student(editingStudentId), {
+            full_name: data.full_name,
+            class_name: data.class_name,
+            birth_date: data.birth_date,
+            subjects: data.subjects,
+          });
+          App.ui.toast('Данные ученика обновлены.', 'success');
           closeModal();
           load();
         } catch (err) { showError(err.message); }
         finally { submit.disabled = false; }
       });
-
-      function generateCredentials(fullName) {
-        var map = { а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'e',ж:'zh',з:'z',и:'i',й:'y',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'kh',ц:'ts',ч:'ch',ш:'sh',щ:'sch',ъ:'',ы:'y',ь:'',э:'e',ю:'yu',я:'ya' };
-        var word = (fullName || 'student').toLowerCase().split(/\s+/)[0] || 'student';
-        var base = word.split('').map(function (ch) { return map[ch] !== undefined ? map[ch] : ch; }).join('').replace(/[^a-z0-9]/g, '') || 'student';
-        var chars = 'abcdefghjkmnpqrstuvwxyz23456789';
-        var pass = '';
-        for (var i = 0; i < 6; i++) pass += chars[Math.floor(Math.random() * chars.length)];
-        return { login: base + Math.floor(10 + Math.random() * 90), password: pass };
-      }
 
       function showError(msg) { errorBox.textContent = msg; errorBox.style.display = ''; }
 
@@ -255,32 +207,15 @@
               App.ui.h('td', null, s.login || '—'),
               App.ui.h('td', { class: 'col-actions' },
                 App.ui.h('button', {
-                  class: 'btn btn--ghost btn--sm student-edit',
+                  class: 'btn btn--ghost btn--sm',
                   type: 'button',
                   'aria-label': 'Редактировать ученика ' + s.full_name,
                   onclick: function () { openModal(s); },
-                }, 'Изменить'),
-                App.ui.h('button', { class: 'btn btn--danger btn--sm', type: 'button', 'aria-label': 'Удалить' }, 'Удалить')));
+                }, 'Изменить')));
           });
         });
       }
       load();
-
-      // удаление ученика преподавателем
-      tbody.addEventListener('click', function (e) {
-        var btn = e.target.closest('.btn--danger');
-        if (!btn) return;
-        var tr = btn.closest('tr');
-        var id = Number(tr.getAttribute('data-id'));
-        var name = tr.querySelector('strong').textContent;
-        App.ui.confirmDialog('Удалить ученика «' + name + '»? Все его данные (журнал, репертуар, задания) будут удалены.')
-          .then(function (ok) {
-            if (!ok) return;
-            App.api.del(App.CONFIG.ENDPOINTS.student(id))
-              .then(function () { App.ui.toast('Ученик удалён', 'success'); load(); })
-              .catch(function (err) { App.ui.toast(err.message, 'error'); });
-          });
-      });
     })();
   </script>
 </body>
